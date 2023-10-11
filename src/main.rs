@@ -3,6 +3,8 @@ use args::{QArgs, Entity};
 use clap::Parser;
 
 mod parser;
+mod interpreter;
+use interpreter::Interpreter;
 
 use std::{path::PathBuf, process::exit};
 
@@ -33,15 +35,7 @@ fn main() {
         return;
     }
 
-    let mut lexer = parser::Lexer::new(content);
-    let tokens = lexer.tokenize();
-    match tokens {
-        Ok(t) => {
-            println!("{:?}", t);
-        },
-        Err(e) => {
-            println!("[ERROR]: {}", e);
-            exit(1);
-        },
-    }
+    let mut interpreter = Interpreter::new(content);
+    // println!("{:?}", interpreter.tokens);
+    interpreter.compile();
 }

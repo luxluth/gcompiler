@@ -1,49 +1,6 @@
-/*
-% This is a comment %
-#root
-    - box (0, 0, 100, 100);
-    - color 0x000000;
-    - background 0xffffff;
-    - axes (x, y);
-#end;
-
-#grid
-    - color 0x000000;
-    - alpha 0.2;
-    - thickness 1;
-#end;
-
-#define x
-    - min 0;
-    - max 100;
-    - name "x";
-#end;
-
-#define y
-    - min 0;
-    - max 100;
-    - name "y";
-#end;
-
-@line
-    - from (0, 0);
-    - to (100, 100);
-    - name "line";
-    - color 0x000000;
-#end;
-
-@graph
-    - name "x^2";
-    - color 0xff0000;
-    - thickness 2;
-    - function x^2;
-#end;
-
-*/
-
-const TOP_LEVEL_DECLARATIONS: [&str; 5] = ["root", "grid", "define", "include", "end"];
-const INNER_FUNCTIONS: [&str; 2] = ["line", "graph"];
-const KEYWORDS: [&str; 12] = [
+pub const TOP_LEVEL_DECLARATIONS: [&str; 5] = ["root", "grid", "define", "include", "end"];
+pub const INNER_FUNCTIONS: [&str; 3] = ["line", "graph", "point"];
+pub const KEYWORDS: [&str; 13] = [
     "min",
     "max",
     "name",
@@ -56,10 +13,11 @@ const KEYWORDS: [&str; 12] = [
     "to",
     "axes",
     "box",
+    "at"
 ];
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TokenType {
     STRING,
     INTERGER,
@@ -69,9 +27,12 @@ pub enum TokenType {
     KEYWORD,
     DECLARATION,
     FUNCTION,
+    VARNAME,
+    VAR,
+    DEFINE,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
@@ -131,30 +92,33 @@ impl Lexer {
         self.make_token(TokenType::STRING, string);
     }
 
-    fn build_integer(&mut self) {
-        let mut integer = String::new();
+    fn build_number(&mut self) -> Result<(), String> {
+        let mut number = String::new();
+        let mut dot_encountered = false;
         while self.position < self.input.len() {
             let c = self.input.chars().nth(self.position).unwrap();
-            if !c.is_numeric() {
+            if c == '.' {
+                if dot_encountered {
+                    return Err(format!("Invalid number at line {}", self.line));
+                }
+                dot_encountered = true;
+                number.push(c);
+            } else if !c.is_ascii_digit() {
                 break;
+            } else {
+                number.push(c);
             }
-            integer.push(c);
-            self.consume(1);
-        }
-        self.make_token(TokenType::INTERGER, integer);
-    }
 
-    fn build_float(&mut self) {
-        let mut float = String::new();
-        while self.position < self.input.len() {
-            let c = self.input.chars().nth(self.position).unwrap();
-            if !c.is_numeric() && c != '.' {
-                break;
-            }
-            float.push(c);
             self.consume(1);
         }
-        self.make_token(TokenType::FLOAT, float);
+
+        if dot_encountered {
+            self.make_token(TokenType::FLOAT, number);
+            Ok(())
+        } else {
+            self.make_token(TokenType::INTERGER, number);
+            Ok(())
+        }
     }
 
     fn build_hex(&mut self) {
@@ -181,7 +145,11 @@ impl Lexer {
             keyword.push(c);
             self.consume(1);
         }
-        if KEYWORDS.contains(&keyword.as_str()) || self.added_keywords.contains(&keyword) {
+        if self.added_keywords.contains(&keyword) {
+            self.make_token(TokenType::VAR, keyword);
+            return Ok(());
+        }
+        if KEYWORDS.contains(&keyword.as_str()) {
             self.make_token(TokenType::KEYWORD, keyword);
             return Ok(());
         } else {
@@ -215,16 +183,34 @@ impl Lexer {
                     self.line += 1;
                 },
                 '0'..='9' => {
+                    // checking if it's a hex number
                     if self.input.chars().nth(self.position).unwrap() == '0' && self.input.chars().nth(self.position + 1).unwrap() == 'x' {
                         self.build_hex();
                         continue;
                     }
-                    self.build_integer();
+
+                    match self.build_number() {
+                        Ok(_) => {},
+                        Err(e) => {
+                            return Err(e);
+                        },
+                    }   
                 },
+
                 '.' => {
-                    self.build_float();
-                },
-                '(' | ')' | ',' | ';' => {
+                    if self.input.chars().nth(self.position + 1).unwrap().is_ascii_digit() {
+                        match self.build_number() {
+                            Ok(_) => {},
+                            Err(e) => {
+                                return Err(e);
+                            },
+                        }
+                    } else {
+                        self.consume(1);
+                    }
+                }
+
+                ',' => {
                     self.make_token(TokenType::SYMBOL, self.input.chars().nth(self.position).unwrap().to_string());
                     self.consume(1);
                 },
@@ -243,8 +229,8 @@ impl Lexer {
                         return Err(format!("Unknown declaration '{}'", declaration));
                     }
                     let d = declaration.clone();
-                    self.make_token(TokenType::DECLARATION, declaration);
                     if  d == "define" {
+                        self.make_token(TokenType::DEFINE, declaration);
                         self.consume(1);
                         let mut define = String::new();
                         while self.position < self.input.len() {
@@ -258,7 +244,11 @@ impl Lexer {
                         if self.added_keywords.contains(&define) {
                             return Err(format!("Keyword '{}' already defined", define));
                         }
+
+                        self.make_token(TokenType::VARNAME, define.clone());
                         self.added_keywords.push(define);
+                    } else {
+                        self.make_token(TokenType::DECLARATION, declaration);
                     }
 
                 },
