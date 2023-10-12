@@ -10,6 +10,9 @@ A simple compiler for the G description language for simple graphs, written in R
       - [`@line`](#line)
       - [`@point`](#point)
       - [`@graph`](#graph)
+  - [Comments](#comments)
+  - [Usage](#usage)
+  - [License](#license)
 
 
 ## What is G?
@@ -124,6 +127,23 @@ The `@graph` function draws a graph of a given function.
   - `x` The x value
 
 
+## Comments
 
----------
+Comments are supported in G files. Comments are started and ended with `%`
+
+```oz
+% This is a comment %
+```
+
+## Usage
+
+A simple command line interface is provided for compiling G files.
+
+```bash
+gcompiler compile examples/simple.g
+```
+
+
+## License
+
 Apache-2.0 license. See [LICENSE](LICENSE) for more information.
