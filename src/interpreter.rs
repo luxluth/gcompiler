@@ -67,8 +67,8 @@ use std::process::exit;
 #[derive(Debug, Clone)]
 pub struct Declaration {
     pub varname: String,
-    pub name: String,
-    pub min: f64,
+    pub name: Option<String>,
+    pub min: Option<f64>,
     pub max: f64,
 }
 
@@ -83,8 +83,8 @@ pub struct Root {
 #[derive(Debug, Clone)]
 pub struct Grid {
     pub color: String,
-    pub alpha: f64,
-    pub thickness: f64,
+    pub alpha: Option<f64>,
+    pub thickness: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,21 +110,29 @@ pub enum Arg {
 }
 
 pub struct Interpreter {
+    pub lexer: parser::Lexer,
     pub tokens: Vec<Token>,
     pub position: usize,
     pub definitions: Vec<Declaration>,
+    pub root: Option<Root>,
+    pub grid: Option<Grid>,
+    pub functions: Vec<Function>,
 }
 
 impl Interpreter {
     pub fn new(input: String) -> Self {
-        let mut lexer = parser::Lexer::new(input.clone());
+        let mut lexer = parser::Lexer::new(input);
         let tokens = lexer.tokenize();
         match tokens {
             Ok(t) => {
                 Interpreter {
+                    lexer,
                     tokens: t,
                     position: 0,
                     definitions: Vec::new(),
+                    functions: Vec::new(),
+                    root: None,
+                    grid: None,
                 }
             },
             Err(e) => {
@@ -210,183 +218,474 @@ impl Interpreter {
         }
     }
 
-    fn seek_to(&mut self, value: String, token_type: TokenType) -> Option<usize> {
-        let mut current_pos = self.position;
-        let mut current_token = self.get_token(current_pos);
-        while current_token.is_some() {
-            let token = current_token.unwrap();
-            if token.token_type == token_type && token.value == value {
-                return Some(current_pos);
+    fn get_var(&mut self, name: String) -> Option<Declaration> {
+        for declaration in self.definitions.iter() {
+            if declaration.varname == name {
+                return Some(declaration.clone());
             }
-            current_pos += 1;
-            current_token = self.get_token(current_pos);
         }
-
         None
     }
+    
+    /// Functions for processing the definition
+    fn process_define(&mut self) {
+        self.consume(1);
+        let mut current_token = self.next().clone();
+        if current_token.is_none() {
+            println!("[ERROR]: Missing variable name after 'define' keyword at line {}", current_token.unwrap().line);
+            exit(1);
+        }
 
-    /// This function assumes that the root is present and there is only one
-    fn get_root(&mut self) {
-        let mut _box = (0.0, 0.0, 0.0, 0.0);
-        let mut has_box = false;
-        let mut color = String::new();
-        let mut has_color = false;
-        let mut background = String::new();
-        let mut has_background = false;
-        let mut x_axe = Some(self.definitions[0].clone());
-        let mut y_axe = Some(self.definitions[1].clone());
-        let mut has_axes = false;
-        let mut current_pos = self.seek_to("root".to_string(), TokenType::DECLARATION).unwrap() + 1;
-        let mut current_token = self.get_token(current_pos);
+        let token = current_token.unwrap();
+        if token.token_type != TokenType::VARNAME {
+            println!("[ERROR]: Missing variable name after 'define' keyword at line {}", token.line);
+            exit(1);
+        }
+        
+        self.consume(1);
+        
+        let varname = token.value;
+        let mut min = None;
+        let mut max = None;
+        let mut name = None;
+
+        current_token = self.next();
+
         while current_token.is_some() {
-
             let token = current_token.unwrap();
-            if token.token_type == TokenType::KEYWORD {
-                // TODO
-                if token.value == "box" {}
+            if token.token_type == TokenType::DECLARATION && token.value == "end" {
+                break;
             }
 
-            current_pos += 1;
-            current_token = self.get_token(current_pos);
+            if token.token_type != TokenType::KEYWORD {
+                println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                println!("         > Expected a keyword");
+                exit(1);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "min" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'min' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::INTERGER && token.token_type != TokenType::FLOAT {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected an integer or a float");
+                    exit(1);
+                }
+                
+                min = Some(token.value.parse::<f64>().unwrap());
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "max" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'max' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::INTERGER && token.token_type != TokenType::FLOAT {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected an integer or a float");
+                    exit(1);
+                }
+                
+                max = Some(token.value.parse::<f64>().unwrap());
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "name" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'name' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::STRING {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a string");
+                    exit(1);
+                }
+                
+                name = Some(token.value);
+            }
+
+            self.consume(1);
+            current_token = self.next();
+        }
+
+        if min.is_none() {
+            min = Some(0.0);
+        }
+        if max.is_none() {
+            println!("[ERROR]: Missing 'max' keyword");
+            println!("         > Need to specify a maximum value for the variable '{}'", varname);
+            exit(1);
+        }
+
+        let declaration = Declaration {
+            varname,
+            name,
+            min,
+            max: max.unwrap(),
+        };
+
+        self.definitions.push(declaration);
+        
+    }
+
+    fn process_declaration(&mut self) {
+        let declaration_name = self.next().clone().unwrap().value;
+        self.consume(1);
+        let mut current_token = self.next();
+        if current_token.is_none() {
+            println!("[ERROR]: Missing body for declaration '{}' at line {}", declaration_name, current_token.unwrap().line);
+            exit(1);
+        }
+
+        if declaration_name == "root".to_string() {
+            let mut _box: Option<(f64, f64, f64, f64)> = None;
+            let mut color: Option<String> = None;
+            let mut background: Option<String> = None;
+            let mut axes: Option<(Declaration, Declaration)> = None;
+            while current_token.is_some() {
+                let token = current_token.unwrap();
+                if token.token_type == TokenType::DECLARATION && token.value == "end" {
+                    break;
+                }
+
+                if token.token_type != TokenType::KEYWORD {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a keyword");
+                    exit(1);
+                }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "box" {
+                    self.consume(1);
+                    let values = self.get_tuple(
+                                 4, 
+                        vec![TokenType::FLOAT, TokenType::INTERGER],
+                        "box".to_string()
+                    );
+
+                    _box = Some((
+                        values[0].value.parse::<f64>().unwrap(),
+                        values[1].value.parse::<f64>().unwrap(),
+                        values[2].value.parse::<f64>().unwrap(),
+                        values[3].value.parse::<f64>().unwrap(),
+                    ));
+                }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "color" {
+                    self.consume(1);
+                    current_token = self.next();
+                    if current_token.is_none() {
+                        println!("[ERROR]: Missing value after 'color' keyword at line {}", token.line);
+                        exit(1);
+                    }
+                    let token = current_token.unwrap();
+                    if token.token_type != TokenType::HEX {
+                        println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                        println!("         > Expected a hexadecimal value");
+                        exit(1);
+                    }
+                    
+                    color = Some(token.value);
+                }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "background" {
+                    self.consume(1);
+                    current_token = self.next();
+                    if current_token.is_none() {
+                        println!("[ERROR]: Missing value after 'background' keyword at line {}", token.line);
+                        exit(1);
+                    }
+                    let token = current_token.unwrap();
+                    if token.token_type != TokenType::HEX {
+                        println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                        println!("         > Expected a hexadecimal value");
+                        exit(1);
+                    }
+                    
+                    background = Some(token.value);
+                }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "axes" {
+                    self.consume(1);
+                    let values = self.get_tuple(
+                                2, 
+                        vec![TokenType::VARNAME],
+                        "axes".to_string()
+                    );
+
+                    axes = Some(
+                        (
+                            self.get_var(values[0].clone().value).unwrap(),
+                            self.get_var(values[1].clone().value).unwrap(),
+                        )
+                    );
+                }
+    
+                self.consume(1);
+                current_token = self.next();
+            }
+
+            if _box.is_none() {
+                println!("[ERROR]: Missing 'box' keyword");
+                println!("         > Need to specify a box for the root");
+                exit(1);
+            }
+            if color.is_none() {
+                color = Some("000000".to_string());
+            }
+            
+            if background.is_none() {
+                background = Some("ffffff".to_string());
+            }
+
+            if axes.is_none() {
+                println!("[ERROR]: Missing 'axes' keyword");
+                println!("         > Need to specify axes for the root");
+                exit(1);
+            }
+
+            let root = Root {
+                _box: _box.unwrap(),
+                color: color.unwrap(),
+                background: background.unwrap(),
+                axes: axes.unwrap(),
+            };
+
+            self.root = Some(root);
+
+        } else if declaration_name == "grid".to_string() {
+            let mut color: Option<String> = None;
+            let mut alpha: Option<f64> = None;
+            let mut thickness: Option<f64> = None;
+
+            while current_token.is_some() {
+                let token = current_token.unwrap();
+                if token.token_type == TokenType::DECLARATION && token.value == "end" {
+                    break;
+                }
+
+                if token.token_type != TokenType::KEYWORD {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a keyword");
+                    exit(1);
+                }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "color" {
+                    self.consume(1);
+                    current_token = self.next();
+                    if current_token.is_none() {
+                        println!("[ERROR]: Missing value after 'color' keyword at line {}", token.line);
+                        exit(1);
+                    }
+                    let token = current_token.unwrap();
+                    if token.token_type != TokenType::HEX {
+                        println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                        println!("         > Expected a hexadecimal value");
+                        exit(1);
+                    }
+                    
+                    color = Some(token.value);
+                }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "alpha" {
+                    self.consume(1);
+                    current_token = self.next();
+                    if current_token.is_none() {
+                        println!("[ERROR]: Missing value after 'alpha' keyword at line {}", token.line);
+                        exit(1);
+                    }
+                    let token = current_token.unwrap();
+                    if token.token_type != TokenType::FLOAT || token.token_type != TokenType::INTERGER {
+                        println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                        println!("         > Expected a float or an integer");
+                        exit(1);
+                    }
+                    let alpha_value = token.value.parse::<f64>().unwrap();
+                    if alpha_value > 1.0 {
+                        println!("[ERROR]: Alpha value must be between 0 and 1 at line {}", token.line);
+                        exit(1);
+                    }
+                    alpha = Some(alpha_value);
+                }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "thickness" {
+                    self.consume(1);
+                    current_token = self.next();
+                    if current_token.is_none() {
+                        println!("[ERROR]: Missing value after 'thickness' keyword at line {}", token.line);
+                        exit(1);
+                    }
+                    let token = current_token.unwrap();
+                    if token.token_type != TokenType::FLOAT || token.token_type != TokenType::INTERGER {
+                        println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                        println!("         > Expected a float or an integer");
+                        exit(1);
+                    }
+                    thickness = Some(token.value.parse::<f64>().unwrap());
+                }
+    
+                self.consume(1);
+                current_token = self.next();
+            }
+
+            if color.is_none() {
+                color = Some("000000".to_string());
+            }
+
+            if alpha.is_none() {
+                alpha = Some(0.2);
+            }
+
+            if thickness.is_none() {
+                thickness = Some(1.0);
+            }
+
+            let grid = Grid {
+                color: color.unwrap(),
+                alpha,
+                thickness,
+            };
+
+            self.grid = Some(grid);
+        } else {
+            println!("[ERROR]: Unknown declaration '{}' at line {}", declaration_name, current_token.unwrap().line);
+            exit(1);
         }
     }
-    
-    /// Functions for processing the definitions
-    /// Finds all the definitions and stores them in the definitions vector
-    /// Each definition is composed of a name, a min and a max
-    fn process_definitions(&mut self) {
-        let mut current_pos = 0;
-        let mut current_token = self.get_token(current_pos);
-        while current_token.is_some() {
-            let token = current_token.unwrap();
-            if token.token_type == TokenType::DEFINE {
-                let mut varname = String::new();
-                let mut name = String::new();
-                let mut has_name = false;
-                let mut min = 0.0;
-                let mut has_min = false;
-                let mut max = 0.0;
-                let mut has_max = false;
 
-                let mut current_pos = current_pos + 1;
-                let mut current_token = self.get_token(current_pos);
-                while current_token.is_some() {
-                    let token = current_token.unwrap();
-                    if token.token_type == TokenType::KEYWORD {
-                        if token.value == "max" {
-                            has_max = true;
-                            // step to the next token
-                            current_pos += 1;
-                            current_token = self.get_token(current_pos);
-                            if current_token.is_none() {
-                                println!("[ERROR]: Missing value for 'max' keyword");
-                                exit(1);
-                            }
-                            let token = current_token.unwrap();
-                            if token.token_type == TokenType::INTERGER || token.token_type == TokenType::FLOAT {
-                                max = token.value.parse::<f64>().unwrap();
-                            } else {
-                                println!("[ERROR]: Invalid value for 'max' keyword, expected a number got '{}'", token.value);
-                                exit(1);
-                            }
-                        }
+    fn process_function(&mut self) {
+        let func_name = self.next().unwrap();
+        self.consume(1);
+        match &func_name.value[..] {
+            "line" => {
+                self.process_func_line();
+            },
+            "graph" => {
+                self.process_func_graph();
+            },
+            "point" => {
+                self.process_func_point();
+            },
+            _ => {
+                println!("[ERROR]: Unknown function '{}' at line {}", func_name.value, self.next().unwrap().line);
+                exit(1);
+            },
+        }
+    }
 
-                        if token.value == "min" {
-                            has_min = true;
-                            // step to the next token
-                            current_pos += 1;
-                            current_token = self.get_token(current_pos);
-                            if current_token.is_none() {
-                                println!("[ERROR]: Missing value for 'min' keyword");
-                                exit(1);
-                            }
-                            let token = current_token.unwrap();
-                            if token.token_type == TokenType::INTERGER || token.token_type == TokenType::FLOAT {
-                                min = token.value.parse::<f64>().unwrap();
-                            } else {
-                                println!("[ERROR]: Invalid value for 'min' keyword, expected a number got '{}'", token.value);
-                                exit(1);
-                            }
-                        }
-
-                        if token.value == "name" {
-                            has_name = true;
-                            // step to the next token
-                            current_pos += 1;
-                            current_token = self.get_token(current_pos);
-                            if current_token.is_none() {
-                                println!("[ERROR]: Missing value for 'name' keyword");
-                                exit(1);
-                            }
-                            let token = current_token.unwrap();
-                            if token.token_type != TokenType::STRING {
-                                println!("[ERROR]: Invalid value for 'name' keyword");
-                                exit(1);
-                            }
-                            name = token.value.clone();
-                        }
-                    }
-
-                    if token.token_type == TokenType::VARNAME {
-                        varname = token.value.clone();
-                    }
-
-                    if token.token_type == TokenType::DECLARATION && token.value == "end" {
-                        if !has_min {
-                            println!("[ERROR]: Missing 'min' keyword for definition '{}'", varname);
-                            exit(1);
-                        }
-                        if !has_max {
-                            println!("[ERROR]: Missing 'max' keyword for definition '{}'", varname);
-                            exit(1);
-                        }
-                        if !has_name {
-                            println!("[ERROR]: Missing 'name' keyword for definition '{}'", varname);
-                            exit(1);
-                        }
-                        let definition = Declaration {
-                            varname,
-                            name,
-                            min,
-                            max,
-                        };
-                        self.definitions.push(definition);
-                        break;
-                    }
-
-                    current_pos += 1;
-                    current_token = self.get_token(current_pos);
+    fn get_tuple(&mut self, len: i32, allow_tokens: Vec<TokenType>, keyword_name: String) -> Vec<Token> {
+        if len == 0 {
+            return Vec::new();
+        }
+        let token_strings: Vec<String> = allow_tokens.iter().map(|x| self.lexer.get_human_readable(x.clone())).collect();
+        let mut tuple: Vec<Token> = Vec::new();
+        let mut current_token = self.next();
+        let mut pushed = 0;
+        for _ in 0..len {
+            if current_token.is_none() {
+                println!("[ERROR]: Missing values after '{keyword_name}'");
+                exit(1);
+            }
+            let token = current_token.clone().unwrap();
+            let is_comma = token.token_type == TokenType::SYMBOL && token.value == ",";
+            if !allow_tokens.contains(&token.token_type) && !is_comma {
+                if pushed != len {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected one of the following: {:?}", token_strings);
+                    exit(1);
+                } else {
+                    break;
                 }
             }
 
-            current_pos += 1;
-            current_token = self.get_token(current_pos);
+            if is_comma {
+                self.consume(1);
+                current_token = self.next();
+                continue;
+            }
+
+            tuple.push(token.clone());
+            pushed += 1;
+            self.consume(1);
+            current_token = self.next();
         }
 
+        return tuple;
     }
 
-    /**
-     * Preprocess the code
-     * This step is for:
-     * - Track syntax errors
-     * - Check if the code is valid
-     */
+    fn process_func_line(&mut self) {
+        /// the line function has as arguments:
+        /// - from (x, y)
+        /// - to (x, y)
+        /// - name? "string" --> optional
+        /// - color? 0x000000 --> optional
+        /// - thickness? 1 --> optional
+        
+        let mut from: Option<(f64, f64)> = None;
+        let mut to: Option<(f64, f64)> = None;
+        let mut name: Option<String> = None;
+        let mut color: Option<String> = None;
+        let mut thickness: Option<f64> = None;
+
+    }
+    fn process_func_graph(&mut self) {}
+    fn process_func_point(&mut self) {}
+
+
     fn preprocess(&mut self) {
         self.check_declarations();
         self.check_root();
-        self.process_definitions();
-        println!("{:?}", self.definitions);
-        self.get_root();
-    }
-    pub fn compile(&mut self) {
-        self.preprocess();
     }
 
+    pub fn compile(&mut self) {
+        self.preprocess();
+        let mut current_token = self.next();
+        while current_token.is_some() {
+            let token = current_token.unwrap();
+            match token.token_type {
+                TokenType::STRING   | 
+                TokenType::INTERGER | 
+                TokenType::FLOAT    | 
+                TokenType::HEX      | 
+                TokenType::SYMBOL   | 
+                TokenType::KEYWORD  | 
+                TokenType::VARNAME  | 
+                TokenType::VAR => {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Only declarations, definitions and functions are allowed at the top level");
+                    exit(1);
+                },
+
+                TokenType::DEFINE => {
+                    self.process_define();
+                },
+                TokenType::DECLARATION => {
+                    self.process_declaration();
+                },
+                TokenType::FUNCTION => {
+                    self.process_function();
+                },    
+            }
+
+            self.consume(1);
+            current_token = self.next();
+        }
+    }
 
 
     //// Functions for the generation of the SVG string
     fn gen_svg(&mut self) {}
-    fn compute_line(&mut self, pos_from: (f64, f64), pos_to: (f64, f64)) {}
-    fn compute_graph(&mut self, f: String) {}
+    // fn compute_line(&mut self, pos_from: (f64, f64), pos_to: (f64, f64)) {}
+    // fn compute_graph(&mut self, f: String) {}
+    // fn compute_point(&mut self, at: (f64, f64)) {}
 
 }

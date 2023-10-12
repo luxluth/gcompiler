@@ -1,4 +1,4 @@
-pub const TOP_LEVEL_DECLARATIONS: [&str; 5] = ["root", "grid", "define", "include", "end"];
+pub const TOP_LEVEL_DECLARATIONS: [&str; 4] = ["root", "grid", "define", "end"];
 pub const INNER_FUNCTIONS: [&str; 3] = ["line", "graph", "point"];
 pub const KEYWORDS: [&str; 13] = [
     "min",
@@ -60,6 +60,22 @@ impl Lexer {
 
     fn consume(&mut self, len: usize) {
         self.position += len;
+    }
+
+    pub fn get_human_readable(&mut self, token_type: TokenType) -> String {
+        match token_type {
+            TokenType::STRING => String::from("string"),
+            TokenType::INTERGER => String::from("integer"),
+            TokenType::FLOAT => String::from("float"),
+            TokenType::HEX => String::from("hexadecimal"),
+            TokenType::SYMBOL => String::from("symbol"),
+            TokenType::KEYWORD => String::from("keyword"),
+            TokenType::DECLARATION => String::from("declaration"),
+            TokenType::FUNCTION => String::from("function"),
+            TokenType::VARNAME => String::from("variable name"),
+            TokenType::VAR => String::from("variable"),
+            TokenType::DEFINE => String::from("define"),
+        }
     }
 
     fn make_token(&mut self, token_type: TokenType, value: String) {
