@@ -20,11 +20,9 @@
 
 #grid
     color 0x000000
-    alpha 0.2
+    alpha .2
     thickness 1
 #end
-
-%
 
 @line
     from 0, 0
@@ -37,7 +35,7 @@
     name "x^2"
     color 0xff0000
     thickness 2
-    function x^2
+    func "x^2"
 #end
 
 @point
@@ -45,5 +43,3 @@
     name "A"
     color 0x0000ff
 #end
-
-%

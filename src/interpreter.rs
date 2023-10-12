@@ -1,60 +1,3 @@
-/*
-#define x
-    min 0
-    max 100
-    name "x"
-#end
-
-#define y
-    min 0
-    max 100
-    name "y"
-#end
-
-#root
-    box (0, 0, 100, 100)
-    color 0x000000
-    background 0xffffff
-    axes (x, y)
-#end
-
-#grid
-    color 0x000000
-    alpha 0.2
-    thickness 1
-#end
-
-@line
-    from (0, 0)
-    to (100, 100)
-    name "line"
-    color 0x000000
-#end
-
-@graph
-    name "x^2"
-    color 0xff0000
-    thickness 2
-    function x^2
-#end
-
-@point
-    x 50
-    y 50
-    name "A"
-    color 0x0000ff
-#end
-*/
-
-/*
-Gramatical rules
-- A file is composed of multiple declarations
-- A declaration is composed of a keyword and a block
-- A block is composed ends with a end keyword
-- A line is composed of a keyword and a value
-- Any statement ends with a semicolon
-*/
-
 use crate::parser;
 use crate::parser::{Token, TokenType};
 use crate::parser::{
@@ -95,18 +38,13 @@ pub struct Function {
 
 #[derive(Debug, Clone)]
 pub enum Arg {
-    Min(f64),
-    Max(f64),
     Name(String),
+    Func(String),
     Color(String),
-    Background(String),
-    Alpha(f64),
     Thickness(f64),
-    Function(Function),
-    From(f64),
-    To(f64),
-    Axes((String, String)),
-    Box((f64, f64, f64, f64)),
+    From((f64, f64)),
+    To((f64, f64)),
+    At((f64, f64)),
 }
 
 pub struct Interpreter {
@@ -372,6 +310,12 @@ impl Interpreter {
                         "box".to_string()
                     );
 
+                    if values.len() != 4 {
+                        println!("[ERROR]: Missing values for 'box' keyword at line {}", token.line);
+                        println!("         > Need to specify 4 values");
+                        exit(1);
+                    }
+
                     _box = Some((
                         values[0].value.parse::<f64>().unwrap(),
                         values[1].value.parse::<f64>().unwrap(),
@@ -418,7 +362,7 @@ impl Interpreter {
                     self.consume(1);
                     let values = self.get_tuple(
                                 2, 
-                        vec![TokenType::VARNAME],
+                        vec![TokenType::VAR],
                         "axes".to_string()
                     );
 
@@ -504,17 +448,18 @@ impl Interpreter {
                         exit(1);
                     }
                     let token = current_token.unwrap();
-                    if token.token_type != TokenType::FLOAT || token.token_type != TokenType::INTERGER {
+                    if token.token_type == TokenType::FLOAT || token.token_type == TokenType::INTERGER {
+                        let alpha_value = token.value.parse::<f64>().unwrap();
+                        if alpha_value > 1.0 {
+                            println!("[ERROR]: Alpha value must be between 0 and 1 at line {}", token.line);
+                            exit(1);
+                        }
+                        alpha = Some(alpha_value);
+                    } else {
                         println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
                         println!("         > Expected a float or an integer");
                         exit(1);
                     }
-                    let alpha_value = token.value.parse::<f64>().unwrap();
-                    if alpha_value > 1.0 {
-                        println!("[ERROR]: Alpha value must be between 0 and 1 at line {}", token.line);
-                        exit(1);
-                    }
-                    alpha = Some(alpha_value);
                 }
 
                 if token.token_type == TokenType::KEYWORD && token.value == "thickness" {
@@ -525,12 +470,13 @@ impl Interpreter {
                         exit(1);
                     }
                     let token = current_token.unwrap();
-                    if token.token_type != TokenType::FLOAT || token.token_type != TokenType::INTERGER {
+                    if token.token_type == TokenType::FLOAT || token.token_type == TokenType::INTERGER {
+                        thickness = Some(token.value.parse::<f64>().unwrap());
+                    } else {
                         println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
                         println!("         > Expected a float or an integer");
                         exit(1);
                     }
-                    thickness = Some(token.value.parse::<f64>().unwrap());
                 }
     
                 self.consume(1);
@@ -590,45 +536,47 @@ impl Interpreter {
         let mut tuple: Vec<Token> = Vec::new();
         let mut current_token = self.next();
         let mut pushed = 0;
-        for _ in 0..len {
+        for _ in 0..(len+ (len - 1)) {
             if current_token.is_none() {
                 println!("[ERROR]: Missing values after '{keyword_name}'");
                 exit(1);
             }
-            let token = current_token.clone().unwrap();
+            let token = current_token.unwrap();
             let is_comma = token.token_type == TokenType::SYMBOL && token.value == ",";
-            if !allow_tokens.contains(&token.token_type) && !is_comma {
-                if pushed != len {
-                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
-                    println!("         > Expected one of the following: {:?}", token_strings);
-                    exit(1);
-                } else {
-                    break;
-                }
-            }
-
+            
             if is_comma {
                 self.consume(1);
                 current_token = self.next();
                 continue;
             }
 
-            tuple.push(token.clone());
-            pushed += 1;
+            if !allow_tokens.contains(&token.token_type) {
+                if pushed != len {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected one of the following: {:?}", token_strings);
+                    exit(1);
+                }
+            } else {
+                tuple.push(token.clone());
+                pushed += 1;
+            }
+
             self.consume(1);
             current_token = self.next();
         }
 
+        self.position -= 1;
+
         return tuple;
     }
 
+    /// the line function has as arguments:
+    /// - from (x, y)
+    /// - to (x, y)
+    /// - name? "string" -> optional
+    /// - color? 0x000000 -> optional
+    /// - thickness? 1 -> optional
     fn process_func_line(&mut self) {
-        /// the line function has as arguments:
-        /// - from (x, y)
-        /// - to (x, y)
-        /// - name? "string" --> optional
-        /// - color? 0x000000 --> optional
-        /// - thickness? 1 --> optional
         
         let mut from: Option<(f64, f64)> = None;
         let mut to: Option<(f64, f64)> = None;
@@ -636,9 +584,375 @@ impl Interpreter {
         let mut color: Option<String> = None;
         let mut thickness: Option<f64> = None;
 
+        let mut func = Function {
+            name: "line".to_string(),
+            args: Vec::new(),
+        };
+
+        let mut current_token = self.next();
+
+        while current_token.is_some() {
+            let token = current_token.unwrap();
+            if token.token_type == TokenType::DECLARATION && token.value == "end" {
+                break;
+            }
+
+            if token.token_type != TokenType::KEYWORD {
+                println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                println!("         > Expected a keyword");
+                exit(1);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "from" {
+                self.consume(1);
+                let values = self.get_tuple(
+                                 2, 
+                        vec![TokenType::FLOAT, TokenType::INTERGER],
+                        "from".to_string()
+                    );
+
+                from = Some(
+                    (
+                        values[0].value.parse::<f64>().unwrap(),
+                        values[1].value.parse::<f64>().unwrap(),
+                    )
+                );
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "to" {
+                self.consume(1);
+                let values = self.get_tuple(
+                                 2, 
+                        vec![TokenType::FLOAT, TokenType::INTERGER],
+                        "to".to_string()
+                    );
+
+                to = Some(
+                    (
+                        values[0].value.parse::<f64>().unwrap(),
+                        values[1].value.parse::<f64>().unwrap(),
+                    )
+                );
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "name" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'name' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::STRING {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a string");
+                    exit(1);
+                }
+                
+                name = Some(token.value);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "color" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'color' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::HEX {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a hexadecimal value");
+                    exit(1);
+                }
+                
+                color = Some(token.value);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "thickness" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'thickness' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type == TokenType::FLOAT || token.token_type == TokenType::INTERGER {
+                    thickness = Some(token.value.parse::<f64>().unwrap());
+                } else {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a float or an integer");
+                    exit(1);
+                }
+            }
+
+            self.consume(1);
+            current_token = self.next();
+        }
+
+        if from.is_none() {
+            println!("[ERROR]: Missing 'from' keyword");
+            println!("         > Need to specify a starting point for the line");
+            exit(1);
+        } else {
+            func.args.push(Arg::From(from.unwrap()));
+        }
+
+        if to.is_none() {
+            println!("[ERROR]: Missing 'to' keyword");
+            println!("         > Need to specify an ending point for the line");
+            exit(1);
+        } else {
+            func.args.push(Arg::To(to.unwrap()));
+        }
+
+        if name.is_some() {
+            func.args.push(Arg::Name(name.unwrap()));
+        }
+
+        if color.is_some() {
+            func.args.push(Arg::Color(color.unwrap()));
+        }
+
+        if thickness.is_some() {
+            func.args.push(Arg::Thickness(thickness.unwrap()));
+        }
+
+        self.functions.push(func);
+
     }
-    fn process_func_graph(&mut self) {}
-    fn process_func_point(&mut self) {}
+
+    /// the graph function has as arguments:
+    /// - name? "string"
+    /// - color? 0x000000
+    /// - thickness? 1
+    /// - function f(x)
+    fn process_func_graph(&mut self) {
+        let mut name: Option<String> = None;
+        let mut color: Option<String> = None;
+        let mut thickness: Option<f64> = None;
+        let mut func: Option<String> = None;
+
+        let mut function = Function {
+            name: "graph".to_string(),
+            args: Vec::new(),
+        };
+
+        let mut current_token = self.next();
+
+        while current_token.is_some() {
+            let token = current_token.unwrap();
+            if token.token_type == TokenType::DECLARATION && token.value == "end" {
+                break;
+            }
+
+            if token.token_type != TokenType::KEYWORD {
+                println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                println!("         > Expected a keyword");
+                exit(1);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "name" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'name' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::STRING {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a string");
+                    exit(1);
+                }
+                
+                name = Some(token.value);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "color" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'color' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::HEX {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a hexadecimal value");
+                    exit(1);
+                }
+                
+                color = Some(token.value);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "thickness" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'thickness' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type == TokenType::FLOAT || token.token_type == TokenType::INTERGER {
+                    thickness = Some(token.value.parse::<f64>().unwrap());
+                } else {                    
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a float or an integer");
+                    exit(1);
+                }
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "func" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'function' keyword at line {}", token.line);
+                    exit(1);
+                }
+
+                let token = current_token.unwrap();
+
+                if token.token_type != TokenType::STRING {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a string");
+                    exit(1);
+                }
+
+                func = Some(token.value);
+            }
+
+            self.consume(1);
+            current_token = self.next();
+        }
+
+        if name.is_some() {
+            function.args.push(Arg::Name(name.unwrap()));
+        }
+
+        if color.is_some() {
+            function.args.push(Arg::Color(color.unwrap()));
+        }
+
+        if thickness.is_some() {
+            function.args.push(Arg::Thickness(thickness.unwrap()));
+        }
+
+        if func.is_none() {
+            println!("[ERROR]: Missing 'func' keyword");
+            println!("         > Need to specify a function");
+            exit(1);
+        } else {
+            function.args.push(Arg::Func(func.unwrap()));
+        }
+
+        self.functions.push(function);
+
+    }
+
+    /// the point function has as arguments:
+    /// - at (x, y)
+    /// - name? "string"
+    /// - color? 0x000000
+    fn process_func_point(&mut self) {
+
+        let mut at: Option<(f64, f64)> = None;
+        let mut name: Option<String> = None;
+        let mut color: Option<String> = None;
+
+        let mut func = Function {
+            name: "point".to_string(),
+            args: Vec::new(),
+        };
+
+        let mut current_token = self.next();
+
+        while current_token.is_some() {
+
+            let token = current_token.unwrap();
+            if token.token_type == TokenType::DECLARATION && token.value == "end" {
+                break;
+            }
+
+            if token.token_type != TokenType::KEYWORD {
+                println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                println!("         > Expected a keyword");
+                exit(1);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "at" {
+                self.consume(1);
+                let values = self.get_tuple(
+                                 2, 
+                        vec![TokenType::FLOAT, TokenType::INTERGER],
+                        "at".to_string()
+                    );
+
+                at = Some(
+                    (
+                        values[0].value.parse::<f64>().unwrap(),
+                        values[1].value.parse::<f64>().unwrap(),
+                    )
+                );
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "name" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'name' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::STRING {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a string");
+                    exit(1);
+                }
+                
+                name = Some(token.value);
+            }
+
+            if token.token_type == TokenType::KEYWORD && token.value == "color" {
+                self.consume(1);
+                current_token = self.next();
+                if current_token.is_none() {
+                    println!("[ERROR]: Missing value after 'color' keyword at line {}", token.line);
+                    exit(1);
+                }
+                let token = current_token.unwrap();
+                if token.token_type != TokenType::HEX {
+                    println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                    println!("         > Expected a hexadecimal value");
+                    exit(1);
+                }
+                
+                color = Some(token.value);
+            }
+
+            self.consume(1);
+            current_token = self.next();
+        }
+
+        if at.is_none() {
+            println!("[ERROR]: Missing 'at' keyword");
+            println!("         > Need to specify a point");
+            exit(1);
+        } else {
+            func.args.push(Arg::At(at.unwrap()));
+        }
+
+        if name.is_some() {
+            func.args.push(Arg::Name(name.unwrap()));
+        }
+
+        if color.is_some() {
+            func.args.push(Arg::Color(color.unwrap()));
+        }
+
+        self.functions.push(func);
+
+    }
 
 
     fn preprocess(&mut self) {
@@ -648,6 +962,7 @@ impl Interpreter {
 
     pub fn compile(&mut self) {
         self.preprocess();
+        // println!("TOKENS\n{:?}\n\n", self.tokens);
         let mut current_token = self.next();
         while current_token.is_some() {
             let token = current_token.unwrap();
@@ -679,11 +994,16 @@ impl Interpreter {
             self.consume(1);
             current_token = self.next();
         }
+        
+        println!("Definitions: {:?}", self.definitions);
+        println!("Root: {:?}", self.root);
+        println!("Grid: {:?}", self.grid);
+        println!("Functions: {:?}", self.functions);
     }
 
 
     //// Functions for the generation of the SVG string
-    fn gen_svg(&mut self) {}
+    // fn gen_svg(&mut self) {}
     // fn compute_line(&mut self, pos_from: (f64, f64), pos_to: (f64, f64)) {}
     // fn compute_graph(&mut self, f: String) {}
     // fn compute_point(&mut self, at: (f64, f64)) {}

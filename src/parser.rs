@@ -8,7 +8,7 @@ pub const KEYWORDS: [&str; 13] = [
     "background",
     "alpha",
     "thickness",
-    "function",
+    "func",
     "from",
     "to",
     "axes",
