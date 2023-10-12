@@ -126,4 +126,4 @@ The `@graph` function draws a graph of a given function.
 
 
 ---------
-MIT License. See [LICENSE](LICENSE) for more information.
+Apache-2.0 license. See [LICENSE](LICENSE) for more information.
