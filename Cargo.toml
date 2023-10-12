@@ -1,9 +1,9 @@
 [package]
-name = "q"
+name = "gcompiler"
 version = "0.1.0"
 edition = "2021"
 authors = ["luxluth"]
-description = "The Q compiler compiler"
+description = "The .g Graphs compiler"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

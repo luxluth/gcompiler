@@ -13,7 +13,7 @@ pub struct QArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Entity {
-    /// Compile a q program
+    /// Compile a .g program
     Compile(CompileCommand),
 }
 
