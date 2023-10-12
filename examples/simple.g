@@ -15,14 +15,16 @@
     box 0, 0, 100, 100
     color 0x000000
     background 0xffffff
-    axes x, y
+    axis x, y
 #end
 
+%
 #grid
     color 0x000000
     alpha .2
     thickness 1
 #end
+%
 
 @line
     from 0, 0

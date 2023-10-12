@@ -21,7 +21,6 @@ fn get_file_content(path: &PathBuf) -> String {
     }
 }
 
-
 fn main() {
     let args = QArgs::parse();
     let path = match args.entity {
@@ -36,6 +35,5 @@ fn main() {
     }
 
     let mut interpreter = Interpreter::new(content);
-    // println!("{:?}", interpreter.tokens);
     interpreter.compile();
 }

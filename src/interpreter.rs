@@ -20,7 +20,7 @@ pub struct Root {
     pub _box: (f64, f64, f64, f64),
     pub color: String,
     pub background: String,
-    pub axes: (Declaration, Declaration),
+    pub axis: (Declaration, Declaration),
 }
 
 #[derive(Debug, Clone)]
@@ -289,7 +289,7 @@ impl Interpreter {
             let mut _box: Option<(f64, f64, f64, f64)> = None;
             let mut color: Option<String> = None;
             let mut background: Option<String> = None;
-            let mut axes: Option<(Declaration, Declaration)> = None;
+            let mut axis: Option<(Declaration, Declaration)> = None;
             while current_token.is_some() {
                 let token = current_token.unwrap();
                 if token.token_type == TokenType::DECLARATION && token.value == "end" {
@@ -358,15 +358,15 @@ impl Interpreter {
                     background = Some(token.value);
                 }
 
-                if token.token_type == TokenType::KEYWORD && token.value == "axes" {
+                if token.token_type == TokenType::KEYWORD && token.value == "axis" {
                     self.consume(1);
                     let values = self.get_tuple(
                                 2, 
                         vec![TokenType::VAR],
-                        "axes".to_string()
+                        "axis".to_string()
                     );
 
-                    axes = Some(
+                    axis = Some(
                         (
                             self.get_var(values[0].clone().value).unwrap(),
                             self.get_var(values[1].clone().value).unwrap(),
@@ -391,9 +391,9 @@ impl Interpreter {
                 background = Some("ffffff".to_string());
             }
 
-            if axes.is_none() {
-                println!("[ERROR]: Missing 'axes' keyword");
-                println!("         > Need to specify axes for the root");
+            if axis.is_none() {
+                println!("[ERROR]: Missing 'axis' keyword");
+                println!("         > Need to specify axis for the root");
                 exit(1);
             }
 
@@ -401,7 +401,7 @@ impl Interpreter {
                 _box: _box.unwrap(),
                 color: color.unwrap(),
                 background: background.unwrap(),
-                axes: axes.unwrap(),
+                axis: axis.unwrap(),
             };
 
             self.root = Some(root);

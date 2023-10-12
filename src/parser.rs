@@ -11,7 +11,7 @@ pub const KEYWORDS: [&str; 13] = [
     "func",
     "from",
     "to",
-    "axes",
+    "axis",
     "box",
     "at"
 ];
