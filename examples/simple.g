@@ -1,36 +1,34 @@
 % this is a comment %
 #define x
     min 0
-    max 100
+    max 200
     name "x"
 #end
 
 #define y
     min 0
-    max 100
+    max 200
     name "y"
 #end
 
 #root
-    box 0, 0, 100, 100
-    color 0x000000
-    background 0xffffff
+    box 0, 0, 200, 200
+    color 0xebdbb2
+    background 0x282828
     axis x, y
 #end
 
-%
 #grid
-    color 0x000000
-    alpha .2
-    thickness 1
+    color 0x3c3836
+    step 10
+    alpha 1
 #end
-%
 
 @line
     from 0, 0
-    to 100, 100
+    to 50, 50
     name "line"
-    color 0x000000
+    color 0xebdbb2
 #end
 
 @graph

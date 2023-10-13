@@ -28,6 +28,7 @@ pub struct Grid {
     pub color: String,
     pub alpha: Option<f64>,
     pub thickness: Option<f64>,
+    pub step: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,7 +37,7 @@ pub struct Function {
     pub args: Vec<Arg>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Arg {
     Name(String),
     Func(String),
@@ -410,6 +411,7 @@ impl Interpreter {
             let mut color: Option<String> = None;
             let mut alpha: Option<f64> = None;
             let mut thickness: Option<f64> = None;
+            let mut step: Option<f64> = None;
 
             while current_token.is_some() {
                 let token = current_token.unwrap();
@@ -478,6 +480,28 @@ impl Interpreter {
                         exit(1);
                     }
                 }
+
+                if token.token_type == TokenType::KEYWORD && token.value == "step" {
+                    self.consume(1);
+                    current_token = self.next();
+                    if current_token.is_none() {
+                        println!("[ERROR]: Missing value after 'step' keyword at line {}", token.line);
+                        exit(1);
+                    }
+                    let token = current_token.unwrap();
+                    if token.token_type == TokenType::FLOAT || token.token_type == TokenType::INTERGER {
+                        let step_value = token.value.parse::<f64>().unwrap();
+                        if step_value <= 0.0 {
+                            println!("[ERROR]: Step value must be greater than 0 at line {}", token.line);
+                            exit(1);
+                        }
+                        step = Some(step_value);
+                    } else {
+                        println!("[ERROR]: Unexpected token '{}' at line {}", token.value, token.line);
+                        println!("         > Expected a float or an integer");
+                        exit(1);
+                    }
+                }
     
                 self.consume(1);
                 current_token = self.next();
@@ -488,17 +512,22 @@ impl Interpreter {
             }
 
             if alpha.is_none() {
-                alpha = Some(0.2);
+                alpha = Some(0.5);
             }
 
             if thickness.is_none() {
                 thickness = Some(1.0);
             }
 
+            if step.is_none() {
+                step = Some(1.0);
+            }
+
             let grid = Grid {
                 color: color.unwrap(),
                 alpha,
                 thickness,
+                step,
             };
 
             self.grid = Some(grid);
@@ -995,17 +1024,269 @@ impl Interpreter {
             current_token = self.next();
         }
         
-        println!("Definitions: {:?}", self.definitions);
-        println!("Root: {:?}", self.root);
-        println!("Grid: {:?}", self.grid);
-        println!("Functions: {:?}", self.functions);
+        // println!("Definitions: {:?}", self.definitions);
+        // println!("Root: {:?}", self.root);
+        // println!("Grid: {:?}", self.grid);
+        // println!("Functions: {:?}", self.functions);
+        println!("{}", self.gen_svg().as_str());
     }
 
 
     //// Functions for the generation of the SVG string
-    // fn gen_svg(&mut self) {}
-    // fn compute_line(&mut self, pos_from: (f64, f64), pos_to: (f64, f64)) {}
-    // fn compute_graph(&mut self, f: String) {}
-    // fn compute_point(&mut self, at: (f64, f64)) {}
+    fn gen_svg(&mut self) -> String {
+        let mut svg = String::new();
+        svg.push_str(
+            &format!(
+                "<svg viewBox=\"{} {} {} {}\" xmlns=\"http://www.w3.org/2000/svg\">\n", 
+                self.root.as_ref().unwrap()._box.0,
+                self.root.as_ref().unwrap()._box.1,
+                self.root.as_ref().unwrap()._box.2 + 10.0, 
+                self.root.as_ref().unwrap()._box.3 + 10.0,
+            )
+        );
 
+        svg.push_str(
+            &format!(
+                "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"#{}\"/>\n", 
+                self.root.as_ref().unwrap()._box.0,
+                self.root.as_ref().unwrap()._box.1,
+                self.root.as_ref().unwrap()._box.2 + 10.0, 
+                self.root.as_ref().unwrap()._box.3 + 10.0,
+                self.root.as_ref().unwrap().background
+            )
+        );
+
+        if self.grid.is_some() {
+            svg.push_str(gen_grid(
+                self.grid.clone().unwrap(),
+                self.root.as_ref().unwrap()._box.2 + 10.0,
+                self.root.as_ref().unwrap()._box.3 + 10.0,
+            ).as_str())
+        }
+
+        // root axis
+        svg.push_str(draw_axis(
+            self.root.clone().unwrap().axis.0,
+            self.root.clone().unwrap().axis.1,
+            self.root.as_ref().unwrap()._box.2,
+            self.root.as_ref().unwrap()._box.3,
+            self.root.as_ref().unwrap().color.clone(),
+        ).as_str());
+
+        for function in self.functions.iter() {
+            let func = gen_function(function.clone(), self.root.as_ref().unwrap()._box.2, self.root.as_ref().unwrap()._box.3);
+            svg.push_str(func.as_str());
+        }
+
+        svg.push_str("</svg>");
+        svg
+
+    }
+
+}
+
+
+fn draw_axis(
+    x: Declaration,
+    y: Declaration,
+    w: f64,
+    h: f64,
+    color: String,
+) -> String {
+    let mut axis_string = String::new();
+    
+    let mut x_min = 0.0;
+    let x_max = x.max;
+    let mut y_min = 0.0;
+    let y_max = y.max;
+
+    if x.min.is_some() {
+        x_min = x.min.unwrap();
+    }
+    if y.min.is_some() {
+        y_min = y.min.unwrap();
+    }
+
+    let mut from = (x_min, 0.0);
+    let mut to = (x_max, 0.0);
+    let thickness = 1.0;
+    let color = color.clone();
+
+    let mut func = Function {
+        name: String::from("line"), 
+        args: vec![
+            Arg::From(from), 
+            Arg::To(to), 
+            Arg::Color(color.clone()), 
+            Arg::Thickness(thickness)
+        ]
+    };
+
+    axis_string.push_str(gen_line(&func, w, h).as_str());
+
+    from = (0.0, y_min);
+    to = (0.0, y_max);
+    func = Function {
+        name: String::from("line"), 
+        args: vec![
+            Arg::From(from), 
+            Arg::To(to), 
+            Arg::Color(color), 
+            Arg::Thickness(thickness)
+        ]
+    };
+
+    axis_string.push_str(gen_line(&func, w, h).as_str());
+
+    axis_string
+}
+
+fn gen_grid(grid: Grid, w: f64, h: f64) -> String {
+    let mut grid_string = String::new();
+    let mut alpha = 0.5;
+    if grid.alpha.is_some() {
+        alpha = grid.alpha.unwrap();
+    }
+    
+    let mut thickness = 1.0;
+    if grid.thickness.is_some() {
+        thickness = grid.thickness.unwrap();
+    }
+
+    let mut step = 1.0;
+    if grid.step.is_some() {
+        step = grid.step.unwrap();
+    }
+
+    /*
+    https://stackoverflow.com/questions/14208673/how-to-draw-grid-using-html5-and-canvas-or-svg
+    Need to generate a pattern like this:
+    <defs>
+      <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+        <path d="M 80 0 L 0 0 0 80" fill="none" stroke="gray" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#grid)" />
+     */
+
+    grid_string.push_str("<defs>\n");
+    grid_string.push_str(&format!("<pattern id=\"grid\" width=\"{}\" height=\"{}\" patternUnits=\"userSpaceOnUse\">\n", step, step));
+    grid_string.push_str(&format!("<path d=\"M {} 0 L 0 0 0 {}\" fill=\"none\" stroke=\"#{}\" stroke-width=\"{}\" stroke-opacity=\"{}\"/>\n", step, step, grid.color, thickness, alpha));
+    grid_string.push_str("</pattern>\n");
+    grid_string.push_str("</defs>\n");
+    grid_string.push_str(&format!("<rect width=\"{}\" height=\"{}\" fill=\"url(#grid)\" />\n", w, h));
+    
+    grid_string
+
+}
+
+fn gen_function(func: Function, w: f64, h: f64) -> String {
+    match func.name.as_ref() {
+        "line" => {
+            gen_line(&func, w, h)
+        },
+        "graph" => {
+            gen_graph(&func, w, h)
+        },
+        "point" => {
+            gen_point(&func, w, h)
+        },
+        _ => {
+            String::new()
+        },
+    }    
+}
+
+#[derive(Clone, Debug)]
+pub struct ArgData {
+    pub from: Option<(f64, f64)>,
+    pub to: Option<(f64, f64)>,
+    pub at: Option<(f64, f64)>,
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub thickness: Option<f64>,
+    pub func: Option<String>,
+}
+
+fn collect_args(func: &Function) -> ArgData {
+    let mut data = ArgData {
+        from: None,
+        to: None,
+        at: None,
+        name: None,
+        color: None,
+        thickness: None,
+        func: None,
+    };
+    for argument in func.args.iter() {
+        match argument {
+            Arg::From(from) => {
+                data.from = Some(from.clone());
+            },
+            Arg::To(to) => {
+                data.to = Some(to.clone());
+            },
+            Arg::At(at) => {
+                data.at = Some(at.clone());
+            },
+            Arg::Name(name) => {
+                data.name = Some(name.clone());
+            },
+            Arg::Color(color) => {
+                data.color = Some(color.clone());
+            },
+            Arg::Thickness(thickness) => {
+                data.thickness = Some(thickness.clone());
+            },
+            Arg::Func(func) => {
+                data.func = Some(func.clone());
+            },
+        }
+    }
+    data
+}
+
+fn gen_line(func: &Function, w: f64, h: f64) -> String {
+    let datas = collect_args(func);
+    let mut from = datas.from.unwrap();
+    let mut to = datas.to.unwrap();
+    let name = datas.name;
+    let color = datas.color;
+    let thickness = datas.thickness;
+
+    let mut line = String::new();
+    // in svg the axes are inverted so we need to invert the y axis
+    // and add 10 as padding
+    from = (from.0 + 10.0, h - from.1);
+    to = (to.0 + 10.0, h - to.1);
+    line.push_str("<line ");
+    line.push_str(&format!("x1=\"{}\" ", from.0));
+    line.push_str(&format!("y1=\"{}\" ", from.1));
+    line.push_str(&format!("x2=\"{}\" ", to.0 - 10.0));
+    line.push_str(&format!("y2=\"{}\" ", to.1 + 10.0));
+    if name.is_some() {
+        let string = name.unwrap();
+        line.push_str(&format!("name=\"{}\" ", string));
+    }
+
+    if color.is_some() {
+        let string = color.unwrap();
+        line.push_str(&format!("stroke=\"#{}\" ", string));
+    }
+
+    if thickness.is_some() {
+        let thickness = thickness.unwrap();
+        line.push_str(&format!("stroke-width=\"{}\" ", thickness));
+    }
+
+    line.push_str("/>\n");
+    line
+}
+
+fn gen_graph(func: &Function, w: f64, h: f64) -> String {
+    String::new()
+}
+
+fn gen_point(func: &Function, w: f64, h: f64) -> String {
+    String::new()
 }

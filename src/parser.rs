@@ -1,6 +1,6 @@
 pub const TOP_LEVEL_DECLARATIONS: [&str; 4] = ["root", "grid", "define", "end"];
 pub const INNER_FUNCTIONS: [&str; 3] = ["line", "graph", "point"];
-pub const KEYWORDS: [&str; 13] = [
+pub const KEYWORDS: [&str; 14] = [
     "min",
     "max",
     "name",
@@ -13,7 +13,8 @@ pub const KEYWORDS: [&str; 13] = [
     "to",
     "axis",
     "box",
-    "at"
+    "at",
+    "step"
 ];
 
 
