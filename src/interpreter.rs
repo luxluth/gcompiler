@@ -1107,8 +1107,9 @@ fn draw_axis(
         y_min = y.min.unwrap();
     }
 
-    let mut from = (x_min, 0.0);
-    let mut to = (x_max, 0.0);
+    // TODO: removing the min choice
+    let mut from = (0.0, 0.0);
+    let mut to = (x_max, 10.0);
     let thickness = 1.0;
     let color = color.clone();
 
@@ -1124,8 +1125,8 @@ fn draw_axis(
 
     axis_string.push_str(gen_line(&func, w, h).as_str());
 
-    from = (0.0, y_min);
-    to = (0.0, y_max);
+    from = (0.0, 0.0);
+    to = (10.0, y_max);
     func = Function {
         name: String::from("line"), 
         args: vec![
