@@ -26,7 +26,7 @@
 
 @line
     from 0, 0
-    to 50, 50
+    to 100, 200
     name "line"
     color 0xebdbb2
 #end
