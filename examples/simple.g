@@ -1,4 +1,15 @@
 % this is a comment %
+$var fg 0x000000
+
+$for 1..5 | i -> (
+    @line
+        name: ."L{i}"
+        color: $fg
+        from: 0, i 
+        to: i, 0
+    #end
+)
+
 #define x
     min 0
     max 200

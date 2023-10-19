@@ -23,17 +23,26 @@ fn get_file_content(path: &PathBuf) -> String {
 
 fn main() {
     let args = QArgs::parse();
-    let path = match args.entity {
+    match args.entity {
         Entity::Compile(_c) => {
-            PathBuf::from(_c.path)
+            let content = get_file_content(&PathBuf::from(_c.path));
+            if content.len() == 0 {
+                return;
+            }
+        
+            let mut interpreter = Interpreter::new(content);
+            interpreter.compile();
+            
         },
+
+        Entity::Raw(_c) => {
+            if _c.input.len() == 0 {
+                return;
+            } else {
+                let mut interpreter = Interpreter::new(_c.input.to_string());
+                interpreter.compile();
+            }
+        }
     };
 
-    let content = get_file_content(&path);
-    if content.len() == 0 {
-        return;
-    }
-
-    let mut interpreter = Interpreter::new(content);
-    interpreter.compile();
 }

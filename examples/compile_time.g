@@ -1,5 +1,5 @@
 % compile time variables %
-$var fg = 0x000000;
+$var fg 0x000000
 
 
 
