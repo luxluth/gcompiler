@@ -27,24 +27,32 @@ Each `.g` files contains a `#root` declaration and a defined `x` and `y` axis.
 
 A simple graph description looks like this:
 
-```g
+```oz
 #define x
     min 0
-    max 100
+    max 200
     name "x"
 #end
 
 #define y
     min 0
-    max 100
+    max 200
     name "y"
 #end
 
 #root
-    box 0, 0, 100, 100
-    color 0x000000
-    background 0xffffff
+    box 0, 0, 200, 200
+    color 0xebdbb2
+    background 0x282828
     axis x, y
+#end
+
+% optional grid %
+
+#grid
+    color 0x3c3836
+    step 10
+    alpha 1
 #end
 ```
 
@@ -53,6 +61,26 @@ This will generate a graph with a box of size 100x100, with the x and y axis def
 The `x` and `y` definitions define the axis of the graph. They are defined by the `min` and `max` values, and the `name` of the axis. The `name` is used to label the axis.
 
 The `min` value is optional, and defaults to 0. The `max` value is not optional, and must be defined.
+
+The `#root` declaration defines the root of the graph. It is required, and must be defined.
+
+The `box` declaration defines the size of the graph. It is required, and must be defined.
+
+The `axis` declaration defines the axis of the graph. It is required, and must be defined.
+
+The `#grid` declaration defines the grid of the graph. It is optional, and can be defined.
+
+<figure>
+<div align="center">
+
+[![Simple Graph](examples/simple.svg)](examples/simple.g)
+<figcaption> 
+
+*Simple Graph* 
+</figcaption>
+
+</div>
+</figure>
 
 ### Functions
 
@@ -67,12 +95,12 @@ The built-in functions are:
 
 The `@line` function draws a line from one point to another.
 
-```g
+```oz
 @line
     from 0, 0
-    to 100, 100
+    to 100, 200
     name "line"
-    color 0x000000
+    color 0xebdbb2
 #end
 ```
 
@@ -84,16 +112,26 @@ The `@line` function draws a line from one point to another.
 
 - `color` is optional.
 
+<figure>
+<div align="center">
+
+[![Line Graph](examples/line.svg)](examples/line.g)
+<figcaption>
+
+*Line Graph*
+</figcaption>
+
+</div>
+</figure>
 
 #### `@point`
 
 The `@point` function draws a point at a given point.
 
-```g
+```oz
 @point
     at 50, 50
-    name "A"
-    color 0x0000ff
+    color 0xcc241d
 #end
 ```
 
@@ -101,16 +139,25 @@ The `@point` function draws a point at a given point.
 - `name` is optional
 - `color` is optional
 
+<figure>
+<div align="center">
+
+[![Point Graph](examples/point.svg)](examples/point.g)
+<figcaption>
+
+*Point Graph*
+</figcaption>
+</div>
+</figure>
+
 #### `@graph`
 
 The `@graph` function draws a graph of a given function.
 
-```g
+```oz
 @graph
-    name "x^2"
-    color 0xff0000
-    thickness 2
-    func "x^2"
+    color 0xfabd2f
+    func "sin(x * 0.1) * 90 + 90"
 #end
 ```
 
@@ -126,6 +173,18 @@ The `@graph` function draws a graph of a given function.
   - `()` Parentheses
   - `x` The x value
 
+> see [exmex](https://github.com/bertiqwerty/exmex/) for more information on valid mathematical functions.
+
+<figure>
+<div align="center">
+
+[![Graph Graph](examples/graph.svg)](examples/graph.g)
+<figcaption>
+
+*Graph Graph*
+</figcaption>
+</div>
+</figure>
 
 ## Comments
 

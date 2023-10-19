@@ -23,3 +23,9 @@
     alpha 1
 #end
 
+@line
+    from 0, 0
+    to 100, 200
+    name "line"
+    color 0xebdbb2
+#end

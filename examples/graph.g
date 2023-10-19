@@ -1,3 +1,5 @@
+% this is a comment %
+
 #define x
     min 0
     max 200
@@ -23,3 +25,7 @@
     alpha 1
 #end
 
+@graph
+    color 0xfabd2f
+    func "sin(x * 0.1) * 90 + 90"
+#end

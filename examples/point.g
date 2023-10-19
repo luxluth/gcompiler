@@ -23,3 +23,7 @@
     alpha 1
 #end
 
+@point
+    at 50, 50
+    color 0xcc241d
+#end
