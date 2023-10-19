@@ -1,19 +1,17 @@
-% this is a comment %
-
 #define x
     min 0
-    max 200
+    max 100
     name "x"
 #end
 
 #define y
     min 0
-    max 200
+    max 100
     name "y"
 #end
 
 #root
-    box 0, 0, 200, 200
+    box 0, 0, 100, 100
     color 0xebdbb2
     background 0x282828
     axis x, y
@@ -27,5 +25,5 @@
 
 @graph
     color 0xfabd2f
-    func "sin(x * 0.1) * 90 + 90"
+    func "sin(x * 0.1) * 40 + 40"
 #end

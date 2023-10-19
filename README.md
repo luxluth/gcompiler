@@ -30,18 +30,18 @@ A simple graph description looks like this:
 ```oz
 #define x
     min 0
-    max 200
+    max 100
     name "x"
 #end
 
 #define y
     min 0
-    max 200
+    max 100
     name "y"
 #end
 
 #root
-    box 0, 0, 200, 200
+    box 0, 0, 100, 100
     color 0xebdbb2
     background 0x282828
     axis x, y
@@ -98,7 +98,7 @@ The `@line` function draws a line from one point to another.
 ```oz
 @line
     from 0, 0
-    to 100, 200
+    to 50, 100
     name "line"
     color 0xebdbb2
 #end
@@ -157,7 +157,7 @@ The `@graph` function draws a graph of a given function.
 ```oz
 @graph
     color 0xfabd2f
-    func "sin(x * 0.1) * 90 + 90"
+    func "sin(x * 0.1) * 40 + 40"
 #end
 ```
 

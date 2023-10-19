@@ -1,17 +1,17 @@
 #define x
     min 0
-    max 200
+    max 100
     name "x"
 #end
 
 #define y
     min 0
-    max 200
+    max 100
     name "y"
 #end
 
 #root
-    box 0, 0, 200, 200
+    box 0, 0, 100, 100
     color 0xebdbb2
     background 0x282828
     axis x, y
@@ -25,7 +25,7 @@
 
 @line
     from 0, 0
-    to 100, 200
+    to 50, 100
     name "line"
     color 0xebdbb2
 #end
