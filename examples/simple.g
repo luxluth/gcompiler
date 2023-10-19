@@ -33,9 +33,8 @@
 #end
 
 @graph
-    name "x^2"
     color 0xfabd2f
-    func "((1/2)*x - 20)^3"
+    func "sin(x * 0.1) * 90 + 90"
 #end
 
 @point
