@@ -1,14 +1,4 @@
 % this is a comment %
-$var fg 0x000000
-
-$for 1..5 | i -> (
-    @line
-        name: ."L{i}"
-        color: $fg
-        from: 0, i 
-        to: i, 0
-    #end
-)
 
 #define x
     min 0
@@ -44,9 +34,8 @@ $for 1..5 | i -> (
 
 @graph
     name "x^2"
-    color 0xff0000
-    thickness 2
-    func "x^2"
+    color 0xfabd2f
+    func "((1/2)*x - 20)^3"
 #end
 
 @point
@@ -54,3 +43,4 @@ $for 1..5 | i -> (
     name "A"
     color 0x0000ff
 #end
+

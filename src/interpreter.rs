@@ -5,6 +5,8 @@ use crate::parser::{
     INNER_FUNCTIONS,
 };
 
+use exmex::prelude::*;
+
 use std::process::exit;
 
 #[derive(Debug, Clone)]
@@ -1074,7 +1076,11 @@ impl Interpreter {
         ).as_str());
 
         for function in self.functions.iter() {
-            let func = gen_function(function.clone(), self.root.as_ref().unwrap()._box.2, self.root.as_ref().unwrap()._box.3);
+            let func = gen_function(
+                function.clone(), 
+                self.root.as_ref().unwrap()._box.2, 
+                self.root.as_ref().unwrap()._box.3
+            );
             svg.push_str(func.as_str());
         }
 
@@ -1284,10 +1290,114 @@ fn gen_line(func: &Function, w: f64, h: f64) -> String {
     line
 }
 
-fn gen_graph(func: &Function, w: f64, h: f64) -> String {
-    String::new()
+fn gen_point(func: &Function, _w: f64, h: f64) -> String {
+    let datas = collect_args(func);
+    let mut at = datas.at.unwrap();
+    let name = datas.name;
+    let color = datas.color;
+
+    let mut point = String::new();
+
+    // in svg the axes are inverted so we need to invert the y axis
+    // and add 10 as padding
+    at = (at.0 + 10.0, h - at.1);
+    point.push_str("<circle ");
+    point.push_str(&format!("cx=\"{}\" ", at.0));
+    point.push_str(&format!("cy=\"{}\" ", at.1));
+    point.push_str("r=\"2\" ");
+    if name.is_some() {
+        let string = name.unwrap();
+        point.push_str(&format!("name=\"{}\" ", string));
+    }
+
+    if color.is_some() {
+        let string = color.unwrap();
+        point.push_str(&format!("stroke=\"#{}\" ", string));
+        point.push_str(&format!("fill=\"#{}\" ", string));
+    } else {
+        point.push_str("stroke=\"#000000\" ");
+    }
+
+    point.push_str("/>\n");
+
+    point
 }
 
-fn gen_point(func: &Function, w: f64, h: f64) -> String {
-    String::new()
+fn gen_graph(func: &Function, w: f64, h: f64) -> String {
+    let datas = collect_args(func);
+    let func = datas.func.unwrap();
+    let name = datas.name;
+    let color = datas.color;
+    let thickness = datas.thickness;
+
+    let mut graph = String::new();
+
+    // Will be used to generate the path
+    let mut path = String::new();
+    let func_string = func.clone();
+    if func_string.len() == 0 {
+        println!("[ERROR]: Missing function argument");
+        exit(1);
+    }
+    for x in 0..(w as i32) {
+        let x = x as f64;
+
+        let expr = exmex::parse::<f64>(&func_string.as_str());
+
+        match expr {
+            Ok(expr) => {
+                let y = expr.eval(&[(x)]);
+                match y {
+                    Ok(y) => {
+                        if y.is_nan() {
+                            continue;
+                        }
+
+                        let y = h - y;
+                
+                        if x == 0.0 {
+                            path.push_str(&format!("M {} {} ", x + 10.0, y));
+                        } else {
+                            path.push_str(&format!("L {} {} ", x + 10.0, y));
+                        }
+                    },
+                    Err(e) => {
+                        println!("[ERROR]: Cannot parse function {} -> {}", func, e.msg());
+                            exit(1);
+                    },
+                    
+                }
+            },
+            Err(e) => {
+                println!("[ERROR]: Cannot parse function {} -> {}", func, e.msg());
+                exit(1);
+            },
+        }
+    }
+
+    graph.push_str("<path ");
+    graph.push_str(&format!("d=\"{}\" ", path));
+    if name.is_some() {
+        let string = name.unwrap();
+        graph.push_str(&format!("name=\"{}\" ", string));
+    }
+
+    if color.is_some() {
+        let string = color.unwrap();
+        graph.push_str(&format!("stroke=\"#{}\" ", string));
+    } else {
+        graph.push_str("stroke=\"#000000\" ");
+    }
+
+    graph.push_str("fill=\"none\" ");
+
+    if thickness.is_some() {
+        let thickness = thickness.unwrap();
+        graph.push_str(&format!("stroke-width=\"{}\" ", thickness));
+    }
+
+    graph.push_str("/>\n");
+
+    graph
 }
+
