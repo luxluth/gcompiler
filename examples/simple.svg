@@ -6,6 +6,6 @@
 </pattern>
 </defs>
 <rect width="110" height="110" fill="url(#grid)" />
-<line x1="10" y1="100" x2="100" y2="100" stroke="#ebdbb2" stroke-width="1" />
-<line x1="10" y1="100" x2="10" y2="10" stroke="#ebdbb2" stroke-width="1" />
+<line x1="10" y1="100" x2="100" y2="100" stroke-linecap="round" stroke="#ebdbb2" stroke-width="1" />
+<line x1="10" y1="100" x2="10" y2="10" stroke-linecap="round" stroke="#ebdbb2" stroke-width="1" />
 </svg>

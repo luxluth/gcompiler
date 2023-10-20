@@ -1101,16 +1101,16 @@ fn draw_axis(
 ) -> String {
     let mut axis_string = String::new();
     
-    let mut x_min = 0.0;
+    let mut _x_min = 0.0;
     let x_max = x.max;
-    let mut y_min = 0.0;
+    let mut _y_min = 0.0;
     let y_max = y.max;
 
     if x.min.is_some() {
-        x_min = x.min.unwrap();
+        _x_min = x.min.unwrap();
     }
     if y.min.is_some() {
-        y_min = y.min.unwrap();
+        _y_min = y.min.unwrap();
     }
 
     // TODO: removing the min choice
@@ -1253,7 +1253,7 @@ fn collect_args(func: &Function) -> ArgData {
     data
 }
 
-fn gen_line(func: &Function, w: f64, h: f64) -> String {
+fn gen_line(func: &Function, _w: f64, h: f64) -> String {
     let datas = collect_args(func);
     let mut from = datas.from.unwrap();
     let mut to = datas.to.unwrap();
@@ -1271,6 +1271,7 @@ fn gen_line(func: &Function, w: f64, h: f64) -> String {
     line.push_str(&format!("y1=\"{}\" ", from.1));
     line.push_str(&format!("x2=\"{}\" ", to.0 - 10.0));
     line.push_str(&format!("y2=\"{}\" ", to.1 + 10.0));
+    line.push_str("stroke-linecap=\"round\" ");
     if name.is_some() {
         let string = name.unwrap();
         line.push_str(&format!("name=\"{}\" ", string));
@@ -1377,6 +1378,8 @@ fn gen_graph(func: &Function, w: f64, h: f64) -> String {
 
     graph.push_str("<path ");
     graph.push_str(&format!("d=\"{}\" ", path));
+    graph.push_str("stroke-linecap=\"round\" ");
+    
     if name.is_some() {
         let string = name.unwrap();
         graph.push_str(&format!("name=\"{}\" ", string));
